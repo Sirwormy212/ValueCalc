@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Value Bet & Kelly Calculator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --bg:#eef1ec; --panel:#ffffff; --panel2:#f4f6f3; --border:#e1e5de;
+    --text:#232620; --muted:#6b7268; --accent:#5b9bd5; --accent-dark:#2b2f2c;
+    --good:#2e7d32; --good-bg:#e8f3e9; --bad:#c0392b; --bad-bg:#fbe9e7; --warn:#b8860b;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--text);}
+  header{padding:18px 24px;background:#fff;border-bottom:1px solid var(--border);}
+  header h1{margin:0;font-size:20px;color:var(--accent-dark);}
+  .wrap{display:flex;gap:20px;padding:20px 24px;max-width:1400px;margin:0 auto;flex-wrap:wrap;}
+  .main{flex:2;min-width:520px;}
+  .side{flex:1;min-width:320px;}
+  .tabs{display:flex;gap:6px;margin-bottom:0;flex-wrap:wrap;}
+  .tab-btn{background:#fff;border:1px solid var(--border);color:var(--muted);padding:11px 16px;border-radius:8px 8px 0 0;cursor:pointer;font-size:13px;font-weight:700;letter-spacing:.3px;border-bottom:none;}
+  .tab-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.05);}
+  .section-bar{background:var(--accent-dark);color:#fff;padding:10px 14px;border-radius:7px;font-weight:700;font-size:13px;letter-spacing:.4px;margin-bottom:12px;text-align:center;}
+  .row{display:flex;gap:12px;margin-bottom:10px;flex-wrap:wrap;}
+  .field{flex:1;min-width:150px;}
+  label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;font-weight:600;}
+  input[type=text], input[type=number], input[type=date], select{
+    width:100%;padding:9px 10px;background:#fff;border:1.5px solid var(--border);
+    border-radius:6px;color:var(--text);font-size:14px;
+  }
+  input:focus, select:focus{outline:none;border-color:var(--accent);}
+  .btn{background:var(--accent);color:#fff;border:none;padding:10px 18px;border-radius:7px;cursor:pointer;font-size:13px;font-weight:700;}
+  .btn:hover{opacity:.88;}
+  .btn.secondary{background:#fff;border:1.5px solid var(--border);color:var(--accent-dark);}
+  .btn.small{padding:6px 12px;font-size:12px;}
+  .btn.danger{background:var(--bad);}
+  .pane{display:none;background:var(--panel2);border:1px solid var(--border);border-radius:0 0 10px 10px;padding:2px;}
+  .pane.active{display:block;}
+  .result-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px;}
+  .stat{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;}
+  .stat .label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:700;}
+  .stat .value{font-size:19px;font-weight:800;margin-top:2px;color:var(--accent-dark);}
+  .pos{color:var(--good) !important;} .neg{color:var(--bad) !important;} .neutral{color:var(--warn) !important;}
+  .stat.lay{background:var(--bad-bg);}
+  .stat.back{background:var(--good-bg);}
+  .kelly-presets{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;}
+  .kelly-presets button{flex:1;}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px;}
+  th,td{border:1px solid var(--border);padding:7px 9px;text-align:left;white-space:nowrap;}
+  th{background:var(--accent-dark);color:#fff;font-weight:700;position:sticky;top:0;}
+  tbody tr:nth-child(even){background:var(--panel2);}
+  tbody tr:hover{background:#eaf2fb;}
+  td select, td input{padding:4px 6px;font-size:12px;min-width:90px;}
+  .log-actions{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap;}
+  .table-wrap{overflow-x:auto;max-height:380px;overflow-y:auto;border-radius:8px;border:1px solid var(--border);}
+  .copybox{font-size:11px;color:var(--muted);margin-top:6px;min-height:14px;}
+  footer{padding:24px;text-align:center;color:var(--muted);font-size:12px;}
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(30,35,30,.55);z-index:50;align-items:center;justify-content:center;}
+  .modal-overlay.show{display:flex;}
+  .modal-box{max-width:460px;width:90%;margin:0;}
+  .content-pad{padding:18px;}
+  .leg-row{display:flex;gap:8px;margin-bottom:8px;align-items:center;}
+  .leg-row .field{margin-bottom:0;}
+  .leg-row .btn{padding:8px 10px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Value Bet &amp; Kelly Staking Calculator</h1>
+</header>
+
+<div class="wrap">
+  <div class="main">
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="general">General / Boost</button>
+      <button class="tab-btn" data-tab="multilay">Multi Lay Edge</button>
+      <button class="tab-btn" data-tab="casino">Casino Offer</button>
+    </div>
+
+    <!-- ================= GENERAL / STRAIGHT BOOST ================= -->
+    <div class="pane active" id="pane-general">
+      <div class="content-pad">
+      <div class="card">
+        <div class="section-bar">GENERAL VALUE BET / STRAIGHT ODDS BOOST</div>
+        <div class="row">
+          <div class="field"><label>Bet name / selection</label><input type="text" id="g-name" placeholder="e.g. Arsenal to win"></div>
+          <div class="field"><label>Back / boosted odds (decimal)</label><input type="number" id="g-back" step="0.01" placeholder="e.g. 2.20"></div>
+          <div class="field"><label>Fair odds (decimal)</label><input type="number" id="g-fair" step="0.01" placeholder="e.g. 2.00"></div>
+        </div>
+        <button class="btn" onclick="calcGeneral()">Calculate</button>
+      </div>
+      </div>
+    </div>
+
+    <!-- ================= MULTI LAY EDGE ================= -->
+    <div class="pane" id="pane-multilay">
+      <div class="content-pad">
+      <div class="card">
+        <div class="section-bar">MULTI LAY EDGE</div>
+        <div class="row">
+          <div class="field"><label>Bet name / description</label><input type="text" id="ml-name" placeholder="e.g. Correct score 1-1 or 2-2"></div>
+          <div class="field"><label>Bookmaker's odds (decimal)</label><input type="number" id="ml-back" step="0.01" placeholder="e.g. 5.50"></div>
+          <div class="field">
+            <label>Combination type</label>
+            <select id="ml-type">
+              <option value="and">Acca</option>
+              <option value="or">Correct Score</option>
+            </select>
+          </div>
+        </div>
+        <div id="ml-legs"></div>
+        <div class="row">
+          <button class="btn secondary small" onclick="addLegRow()">+ Add leg</button>
+        </div>
+        <button class="btn" onclick="calcMultiLay()">Calculate</button>
+      </div>
+      </div>
+    </div>
+
+    <!-- ================= CASINO OFFER ================= -->
+    <div class="pane" id="pane-casino">
+      <div class="content-pad">
+      <div class="card">
+        <div class="section-bar">CASINO OFFER</div>
+        <div class="row">
+          <div class="field"><label>Offer / bet name</label><input type="text" id="c-name" placeholder="e.g. Roulette even-money boost"></div>
+          <div class="field">
+            <label>Win value</label>
+            <div class="field-with-mode" style="display:flex;gap:6px;">
+              <input type="number" id="c-fairval" step="0.01" placeholder="e.g. 48.6 or 2.06">
+              <select id="c-mode" style="min-width:110px;">
+                <option value="prob">Probability (%)</option>
+                <option value="odds">Implied odds</option>
+              </select>
+            </div>
+          </div>
+          <div class="field"><label>Payout odds if it wins (decimal)</label><input type="number" id="c-odds" step="0.01" placeholder="e.g. 2.10"></div>
+        </div>
+        <button class="btn" onclick="calcCasino()">Calculate</button>
+      </div>
+      </div>
+    </div>
+
+    <div id="result-area"></div>
+
+    <!-- ================= BET LOG ================= -->
+    <div class="card">
+      <div class="section-bar">BET LOG</div>
+      <div class="log-actions">
+        <button class="btn small secondary" onclick="openLogModal()">+ Add bet manually</button>
+        <button class="btn small secondary" onclick="copyLogTSV()">Copy table (paste into Excel)</button>
+        <button class="btn small secondary" onclick="downloadCSV()">Download CSV</button>
+        <button class="btn small danger" onclick="clearLog()">Clear log</button>
+      </div>
+      <div class="copybox" id="copy-status"></div>
+      <div class="table-wrap">
+        <table id="log-table">
+          <thead>
+            <tr>
+              <th>ID</th><th>Date</th><th>Bookie</th><th>Event</th><th>Bet</th><th>Odds</th>
+              <th>Stake</th><th>Result</th><th>P/L</th><th>Settle Date</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="log-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="side">
+    <div class="card">
+      <div class="section-bar">KELLY SETTINGS</div>
+      <div class="row">
+        <div class="field"><label>Bankroll (£)</label><input type="number" id="bankroll" value="1000" step="10"></div>
+      </div>
+      <div class="kelly-presets">
+        <button class="btn small secondary" data-frac="1" onclick="setFraction(1,this)">Full</button>
+        <button class="btn small secondary active-frac" data-frac="0.5" onclick="setFraction(0.5,this)">Half</button>
+        <button class="btn small secondary" data-frac="0.25" onclick="setFraction(0.25,this)">Quarter</button>
+      </div>
+      <div class="row">
+        <div class="field"><label>Custom Kelly multiplier (%)</label><input type="number" id="custom-frac" value="50" step="5"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= ADD-TO-LOG MODAL ================= -->
+<div id="log-modal-overlay" class="modal-overlay">
+  <div class="card modal-box">
+    <div class="section-bar">ADD BET TO LOG</div>
+    <div class="row">
+      <div class="field"><label>Date</label><input type="date" id="m-date"></div>
+      <div class="field"><label>Bookie</label><input type="text" id="m-bookie" placeholder="e.g. Bet365"></div>
+    </div>
+    <div class="row"><div class="field"><label>Event</label><input type="text" id="m-event" placeholder="e.g. Arsenal vs Chelsea"></div></div>
+    <div class="row"><div class="field"><label>Bet</label><input type="text" id="m-bet" placeholder="e.g. Correct score 1-1 or 2-2"></div></div>
+    <div class="row">
+      <div class="field"><label>Odds</label><input type="number" id="m-odds" step="0.01"></div>
+      <div class="field"><label>Stake (£)</label><input type="number" id="m-stake" step="0.01"></div>
+    </div>
+    <div class="row" style="justify-content:flex-end;gap:8px;margin-top:6px;">
+      <button class="btn secondary" onclick="closeLogModal()">Cancel</button>
+      <button class="btn" onclick="confirmAddToLog()">Add to log</button>
+    </div>
+  </div>
+</div>
+
+<footer>Estimates only. Bet within your means.</footer>
+
+<script>
+function probFromInput(value, mode){
+  if(mode === 'odds') return 1/value;
+  return value/100;
+}
+
+let kellyFraction = 0.5;
+let betLog = JSON.parse(localStorage.getItem('betLog_v2') || '[]');
+let nextId = JSON.parse(localStorage.getItem('betLog_nextId_v2') || '1');
+renderLog();
+
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('pane-'+btn.dataset.tab).classList.add('active');
+    document.getElementById('result-area').innerHTML='';
+  });
+});
+
+function setFraction(f, el){
+  kellyFraction = f;
+  document.querySelectorAll('.kelly-presets button').forEach(b=>b.classList.remove('active-frac'));
+  el.classList.add('active-frac');
+  document.getElementById('custom-frac').value = (f*100);
+}
+document.getElementById('custom-frac').addEventListener('input', (e)=>{
+  kellyFraction = parseFloat(e.target.value)/100 || 0;
+  document.querySelectorAll('.kelly-presets button').forEach(b=>b.classList.remove('active-frac'));
+});
+
+function getBankroll(){ return parseFloat(document.getElementById('bankroll').value) || 0; }
+
+function coreCalc({p, decOdds}){
+  const b = decOdds - 1;
+  const breakeven = 1/decOdds;
+  const edgePP = (p - breakeven)*100;
+  const evPct = (p*b - (1-p))*100;
+  const fullKelly = Math.max(0, (b*p - (1-p))/b);
+  const stakeFraction = fullKelly * kellyFraction;
+  const bankroll = getBankroll();
+  const stake = stakeFraction * bankroll;
+  return {b, breakeven, edgePP, evPct, fullKelly, stakeFraction, bankroll, stake};
+}
+
+function renderResult(type, name, decOdds, fairOdds, p, calc){
+  const html = `
+    <div class="card">
+      <div class="section-bar">RESULT — ${escapeHtml(name || '(unnamed bet)').toUpperCase()}</div>
+      <div class="result-grid">
+        <div class="stat back"><div class="label">Effective / back odds</div><div class="value">${decOdds.toFixed(3)}</div></div>
+        <div class="stat lay"><div class="label">Fair odds benchmark</div><div class="value">${fairOdds.toFixed(3)}</div></div>
+        <div class="stat"><div class="label">True / effective probability</div><div class="value">${(p*100).toFixed(2)}%</div></div>
+        <div class="stat"><div class="label">Breakeven probability</div><div class="value">${(calc.breakeven*100).toFixed(2)}%</div></div>
+        <div class="stat"><div class="label">Edge</div><div class="value ${calc.edgePP>=0?'pos':'neg'}">${calc.edgePP.toFixed(2)} pp</div></div>
+        <div class="stat"><div class="label">EV %</div><div class="value ${calc.evPct>=0?'pos':'neg'}">${calc.evPct.toFixed(2)}%</div></div>
+        <div class="stat"><div class="label">Your Kelly stake % (×${(kellyFraction*100).toFixed(0)}%)</div><div class="value">${(calc.stakeFraction*100).toFixed(3)}%</div></div>
+        <div class="stat back"><div class="label">Recommended stake</div><div class="value ${calc.stake>0?'pos':'neutral'}">£${calc.stake.toFixed(2)}</div></div>
+      </div>
+      <button class="btn" style="margin-top:14px" onclick='openLogModal(${JSON.stringify({name, decOdds, stake: calc.stake})})'>Add to bet log</button>
+    </div>`;
+  document.getElementById('result-area').innerHTML = html;
+}
+
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+
+// ---------- GENERAL ----------
+function calcGeneral(){
+  const name = document.getElementById('g-name').value;
+  const back = parseFloat(document.getElementById('g-back').value);
+  const fair = parseFloat(document.getElementById('g-fair').value);
+  if(!back || !fair){ alert('Enter both back odds and fair odds.'); return; }
+  const p = 1/fair;
+  const calc = coreCalc({p, decOdds: back});
+  renderResult('General', name, back, fair, p, calc);
+}
+
+// ---------- MULTI LAY EDGE ----------
+let legCount = 0;
+function addLegRow(){
+  legCount++;
+  const container = document.getElementById('ml-legs');
+  const row = document.createElement('div');
+  row.className = 'leg-row';
+  row.id = 'leg-row-'+legCount;
+  row.innerHTML = `
+    <div class="field"><label>Lay odds (decimal)</label><input type="number" id="leg-odds-${legCount}" step="0.01" placeholder="e.g. 9.00"></div>
+    <button class="btn secondary small" onclick="removeLegRow(${legCount})">✕</button>
+  `;
+  container.appendChild(row);
+}
+function removeLegRow(id){
+  const row = document.getElementById('leg-row-'+id);
+  if(row) row.remove();
+}
+addLegRow();
+addLegRow();
+
+function calcMultiLay(){
+  const name = document.getElementById('ml-name').value;
+  const back = parseFloat(document.getElementById('ml-back').value);
+  const type = document.getElementById('ml-type').value;
+  const legRows = document.querySelectorAll('#ml-legs .leg-row');
+  const legProbs = [];
+  legRows.forEach(row=>{
+    const idNum = row.id.split('-').pop();
+    const layOdds = parseFloat(document.getElementById('leg-odds-'+idNum).value);
+    if(layOdds && layOdds > 1){
+      legProbs.push(1/layOdds);
+    }
+  });
+  if(!back || legProbs.length === 0){ alert('Enter the odds and at least one lay price.'); return; }
+
+  let combinedProb;
+  if(type === 'and'){
+    combinedProb = legProbs.reduce((a,b)=>a*b, 1);
+  } else {
+    combinedProb = legProbs.reduce((a,b)=>a+b, 0);
+    combinedProb = Math.min(combinedProb, 0.999999);
+  }
+  const fairOdds = 1/combinedProb;
+  const calc = coreCalc({p: combinedProb, decOdds: back});
+  renderResult('MultiLay', name, back, fairOdds, combinedProb, calc);
+}
+
+// ---------- CASINO ----------
+function calcCasino(){
+  const name = document.getElementById('c-name').value;
+  const fairVal = parseFloat(document.getElementById('c-fairval').value);
+  const mode = document.getElementById('c-mode').value;
+  const odds = parseFloat(document.getElementById('c-odds').value);
+  if(isNaN(fairVal) || !odds){ alert('Enter a win value and payout odds.'); return; }
+  const prob = probFromInput(fairVal, mode);
+  const fairOddsEquivalent = 1/prob;
+  const calc = coreCalc({p: prob, decOdds: odds});
+  renderResult('Casino', name, odds, fairOddsEquivalent, prob, calc);
+}
+
+// ---------- LOG MODAL ----------
+function openLogModal(prefill){
+  prefill = prefill || {};
+  document.getElementById('m-date').value = todayStr();
+  document.getElementById('m-bookie').value = '';
+  document.getElementById('m-event').value = '';
+  document.getElementById('m-bet').value = prefill.name || '';
+  document.getElementById('m-odds').value = prefill.decOdds ? prefill.decOdds.toFixed(3) : '';
+  document.getElementById('m-stake').value = prefill.stake ? Math.max(0, prefill.stake).toFixed(2) : '';
+  document.getElementById('log-modal-overlay').classList.add('show');
+}
+function closeLogModal(){
+  document.getElementById('log-modal-overlay').classList.remove('show');
+}
+function confirmAddToLog(){
+  const date = document.getElementById('m-date').value || todayStr();
+  const bookie = document.getElementById('m-bookie').value.trim();
+  const event = document.getElementById('m-event').value.trim();
+  const bet = document.getElementById('m-bet').value.trim();
+  const odds = parseFloat(document.getElementById('m-odds').value);
+  const stake = parseFloat(document.getElementById('m-stake').value);
+  if(!bookie || !bet || !odds || !stake){ alert('Please fill in at least Bookie, Bet, Odds and Stake.'); return; }
+  const row = { id: nextId, date, bookie, event, bet, odds, stake, result: 'Pending', pl: '', settleDate: '' };
+  betLog.push(row);
+  nextId += 1;
+  persistLog();
+  renderLog();
+  closeLogModal();
+}
+
+// ---------- LOG RENDER / EDIT ----------
+function persistLog(){
+  localStorage.setItem('betLog_v2', JSON.stringify(betLog));
+  localStorage.setItem('betLog_nextId_v2', JSON.stringify(nextId));
+}
+
+function computePL(row){
+  const odds = parseFloat(row.odds), stake = parseFloat(row.stake);
+  if(row.result === 'Win') return (stake*(odds-1));
+  if(row.result === 'Loss') return -stake;
+  if(row.result === 'Push') return 0;
+  return '';
+}
+
+function updateResult(id, value){
+  const row = betLog.find(r=>r.id===id);
+  if(!row) return;
+  row.result = value;
+  const pl = computePL(row);
+  row.pl = (pl === '') ? '' : pl.toFixed(2);
+  if(value !== 'Pending' && !row.settleDate) row.settleDate = todayStr();
+  if(value === 'Pending') row.settleDate = '';
+  persistLog();
+  renderLog();
+}
+
+function updateSettleDate(id, value){
+  const row = betLog.find(r=>r.id===id);
+  if(!row) return;
+  row.settleDate = value;
+  persistLog();
+}
+
+function deleteRow(id){
+  betLog = betLog.filter(r=>r.id!==id);
+  persistLog();
+  renderLog();
+}
+
+function renderLog(){
+  const body = document.getElementById('log-body');
+  const resultOptions = ['Pending','Win','Loss','Push'];
+  body.innerHTML = betLog.map(r=>{
+    const plClass = (r.pl==='') ? '' : (parseFloat(r.pl)>=0 ? 'pos' : 'neg');
+    const options = resultOptions.map(o=>`<option value="${o}" ${o===r.result?'selected':''}>${o}</option>`).join('');
+    return `<tr>
+      <td>${r.id}</td>
+      <td>${r.date}</td>
+      <td>${escapeHtml(r.bookie)}</td>
+      <td>${escapeHtml(r.event)}</td>
+      <td>${escapeHtml(r.bet)}</td>
+      <td>${(+r.odds).toFixed(3)}</td>
+      <td>£${(+r.stake).toFixed(2)}</td>
+      <td><select onchange="updateResult(${r.id}, this.value)">${options}</select></td>
+      <td class="${plClass}">${r.pl===''? '—' : '£'+r.pl}</td>
+      <td><input type="date" value="${r.settleDate}" onchange="updateSettleDate(${r.id}, this.value)"></td>
+      <td><button class="btn small secondary" onclick="deleteRow(${r.id})">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function clearLog(){
+  if(!confirm('Clear the entire bet log?')) return;
+  betLog = [];
+  nextId = 1;
+  persistLog();
+  renderLog();
+}
+
+function tableToTSV(){
+  const headers = ['ID','Date','Bookie','Event','Bet','Odds','Stake','Result','P/L','Settle Date'];
+  const lines = [headers.join('\t')];
+  betLog.forEach(r=>{
+    lines.push([r.id, r.date, r.bookie, r.event, r.bet, (+r.odds).toFixed(3), (+r.stake).toFixed(2), r.result, r.pl, r.settleDate].join('\t'));
+  });
+  return lines.join('\n');
+}
+
+function copyLogTSV(){
+  const tsv = tableToTSV();
+  navigator.clipboard.writeText(tsv).then(()=>{
+    document.getElementById('copy-status').textContent = 'Copied '+betLog.length+' row(s) — paste directly into Excel (Ctrl+V).';
+  }).catch(()=>{
+    const ta = document.createElement('textarea');
+    ta.value = tsv; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    document.getElementById('copy-status').textContent = 'Copied (fallback method).';
+  });
+}
+
+function downloadCSV(){
+  const headers = ['ID','Date','Bookie','Event','Bet','Odds','Stake','Result','P/L','Settle Date'];
+  let csv = headers.join(',')+'\n';
+  betLog.forEach(r=>{
+    const row = [r.id, r.date, r.bookie.replace(/,/g,';'), r.event.replace(/,/g,';'), r.bet.replace(/,/g,';'), (+r.odds).toFixed(3), (+r.stake).toFixed(2), r.result, r.pl, r.settleDate];
+    csv += row.join(',')+'\n';
+  });
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'value_bet_log.csv';
+  a.click();
+}
+</script>
+</body>
+</html>
